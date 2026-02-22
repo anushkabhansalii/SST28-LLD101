@@ -1,13 +1,19 @@
 public class WhatsAppSender extends NotificationSender {
-    public WhatsAppSender(AuditLog audit) { super(audit); }
+    public WhatsAppSender(AuditLog audit) {
+        super(audit);
+    }
 
     @Override
-    public void send(Notification n) {
-        // LSP violation: tightens precondition
+    public NotificationResult send(Notification n) {
+        // LSP fix: Return failure result instead of throwing a RuntimeException.
         if (n.phone == null || !n.phone.startsWith("+")) {
-            throw new IllegalArgumentException("phone must start with + and country code");
+            String err = "phone must start with + and country code";
+            audit.add("WA failed"); // preserve audit behavior
+            return NotificationResult.failure(err, "WA failed");
         }
         System.out.println("WA -> to=" + n.phone + " body=" + n.body);
-        audit.add("wa sent");
+        String msg = "wa sent";
+        audit.add(msg);
+        return NotificationResult.success(msg);
     }
 }

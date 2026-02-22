@@ -1,12 +1,16 @@
 public class EmailSender extends NotificationSender {
-    public EmailSender(AuditLog audit) { super(audit); }
+    public EmailSender(AuditLog audit) {
+        super(audit);
+    }
 
     @Override
-    public void send(Notification n) {
-        // LSP smell: truncates silently, changing meaning
-        String body = n.body;
-        if (body.length() > 40) body = body.substring(0, 40);
-        System.out.println("EMAIL -> to=" + n.email + " subject=" + n.subject + " body=" + body);
-        audit.add("email sent");
+    public NotificationResult send(Notification n) {
+        // LSP fix: No more silent truncation. If length is an issue, we could return a
+        // failure,
+        // but for this demo, we'll just print it as-is to preserve data integrity.
+        System.out.println("EMAIL -> to=" + n.email + " subject=" + n.subject + " body=" + n.body);
+        String msg = "email sent";
+        audit.add(msg);
+        return NotificationResult.success(msg);
     }
 }

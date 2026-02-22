@@ -11,13 +11,14 @@ public class Main {
 
         email.send(n);
         sms.send(n);
-        try {
-            wa.send(n);
-        } catch (RuntimeException ex) {
-            System.out.println("WA ERROR: " + ex.getMessage());
-            audit.add("WA failed");
+
+        NotificationResult resWa = wa.send(n);
+        if (!resWa.isSuccess) {
+            System.out.print("WA ERROR: ");
+            System.out.println(resWa.errorMessage);
         }
 
-        System.out.println("AUDIT entries=" + audit.size());
+        System.out.print("AUDIT entries=");
+        System.out.println(audit.size());
     }
 }
