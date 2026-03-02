@@ -4,12 +4,7 @@ import com.example.tickets.TicketService;
 import java.util.List;
 
 /**
- * Starter demo that shows why mutability is risky.
- *
- * After refactor:
- * - direct mutation should not compile (no setters)
- * - external modifications to tags should not affect the ticket
- * - service "updates" should return a NEW ticket instance
+ * Demo that shows building and updating immutable tickets.
  */
 public class TryIt {
 
@@ -19,16 +14,21 @@ public class TryIt {
         IncidentTicket t = service.createTicket("TCK-1001", "reporter@example.com", "Payment failing on checkout");
         System.out.println("Created: " + t);
 
-        // Demonstrate post-creation mutation through service
-        service.assign(t, "agent@example.com");
-        service.escalateToCritical(t);
-        System.out.println("\nAfter service mutations: " + t);
+        // Demonstrate service updating by returning a new object
+        IncidentTicket assigned = service.assign(t, "agent@example.com");
+        IncidentTicket escalated = service.escalateToCritical(assigned);
 
-        // Demonstrate external mutation via leaked list reference
-        List<String> tags = t.getTags();
-        tags.add("HACKED_FROM_OUTSIDE");
-        System.out.println("\nAfter external tag mutation: " + t);
+        System.out.println("\nOriginal is untouched: " + t);
+        System.out.println("After service updates (new ticket): " + escalated);
 
-        // Starter compiles; after refactor, you should redesign updates to create new objects instead.
+        // Demonstrate immutability via unmodifiable tags list
+        System.out.println("\nAttempting to mutate tags list externally...");
+        try {
+            List<String> tags = escalated.getTags();
+            tags.add("HACKED_FROM_OUTSIDE");
+        } catch (UnsupportedOperationException e) {
+            System.out.println(
+                    "Caught Expected Exception: tags list is immutable (" + e.getClass().getSimpleName() + ")");
+        }
     }
 }

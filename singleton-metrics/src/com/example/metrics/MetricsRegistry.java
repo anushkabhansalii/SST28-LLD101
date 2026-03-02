@@ -3,59 +3,69 @@ package com.example.metrics;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * INTENTION: Global metrics registry (should be a Singleton).
+ * Global metrics registry properly implemented as a Singleton.
  *
- * CURRENT STATE (BROKEN ON PURPOSE):
- * - Constructor is public -> anyone can create instances.
- * - getInstance() is lazy but NOT thread-safe -> can create multiple instances.
- * - Reflection can call the constructor to create more instances.
- * - Serialization can create a new instance when deserialized.
- *
- * TODO (student):
- *  1) Make it a proper lazy, thread-safe singleton (private ctor)
- *  2) Block reflection-based multiple construction
- *  3) Preserve singleton on serialization (readResolve)
+ * It is:
+ * - Lazy-initialized using double-checked locking.
+ * - Thread-safe for accessing counters.
+ * - Protected against Reflection-based construction.
+ * - Protected against Serialization breaking the singleton.
  */
 public class MetricsRegistry implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
 
-    private static MetricsRegistry INSTANCE; // BROKEN: not volatile, not thread-safe
-    private final Map<String, Long> counters = new HashMap<>();
+    // volatile is necessary for correct double-checked locking behavior
+    private static volatile MetricsRegistry INSTANCE;
 
-    // BROKEN: should be private and should prevent second construction
-    public MetricsRegistry() {
-        // intentionally empty
+    // ConcurrentHashMap provides thread-safe access without full synchronization on
+    // the whole class
+    private final Map<String, Long> counters = new ConcurrentHashMap<>();
+
+    private MetricsRegistry() {
+        // Protect against reflection attacks if the instance already exists
+        if (INSTANCE != null) {
+            throw new IllegalStateException("Instance already exists! Use getInstance() instead.");
+        }
     }
 
-    // BROKEN: racy lazy init; two threads can create two instances
     public static MetricsRegistry getInstance() {
         if (INSTANCE == null) {
-            INSTANCE = new MetricsRegistry();
+            synchronized (MetricsRegistry.class) {
+                // Secondary check inside synchronized block
+                if (INSTANCE == null) {
+                    INSTANCE = new MetricsRegistry();
+                }
+            }
         }
         return INSTANCE;
     }
 
-    public synchronized void setCount(String key, long value) {
+    public void setCount(String key, long value) {
         counters.put(key, value);
     }
 
-    public synchronized void increment(String key) {
-        counters.put(key, getCount(key) + 1);
+    public void increment(String key) {
+        // compute is an atomic operation in ConcurrentHashMap
+        counters.compute(key, (k, v) -> (v == null) ? 1L : v + 1L);
     }
 
-    public synchronized long getCount(String key) {
+    public long getCount(String key) {
         return counters.getOrDefault(key, 0L);
     }
 
-    public synchronized Map<String, Long> getAll() {
-        return Collections.unmodifiableMap(new HashMap<>(counters));
+    public Map<String, Long> getAll() {
+        return Collections.unmodifiableMap(new ConcurrentHashMap<>(counters));
     }
 
-    // TODO: implement readResolve() to preserve singleton on deserialization
+    // Preserve singleton on deserialization
+    @Serial
+    protected Object readResolve() {
+        return getInstance();
+    }
 }
